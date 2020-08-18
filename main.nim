@@ -1,6 +1,8 @@
 import os
 import streams
 import strutils
+import strformat
+
 
 type
     Register = enum
@@ -29,24 +31,25 @@ type
 
 var regs: array[Register.count, uint16]
 
-var ram: array[0..65535, uint8]
-
-
-proc toggle_endianess(num: uint16): uint16 =
-    var
-        left_byte, right_byte: uint16
-
-    left_byte = (num and 0x00ff) shl 2
-    right_byte = (num and 0xff00) shr 2
-
-    return left_byte + right_byte
-
+var ram: array[0..65535, uint16]
 
 proc load_file(path: string) =
-    var rom = newFileStream(path, fmRead)
-    var load_addr = rom.readUint16()
+    var 
+        rom = newFileStream(path, fmRead)
+        buffer: array[2, uint8]
+
+    doAssert rom.readData(addr(buffer), 2) == 2
+    let load_addr: uint16 = (buffer[0] shl 2) or buffer[1]
     
-    echo "0x" & toggle_endianess(load_addr).toHex()
+    echo fmt"Loading rom at addr {load_addr}, 0x{load_addr.toHex()}"
+
+    var load_index: uint16 = 0
+    while not rom.atEnd():
+        doAssert rom.readData(addr(buffer), 2) == 2
+        ram[load_addr + load_index] = (buffer[1] shl 2) or buffer[0]
+        load_index += 1
+
+    echo fmt"Loaded {(load_index + 1) * 2}"
 
     rom.close()
 
